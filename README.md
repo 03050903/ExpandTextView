@@ -1,5 +1,4 @@
 ## 支持展开的TextView －－ExpandTextView
-关键词：expand expandable textview
 
  参考开源项目[ExpendableTextView](https://github.com/Manabu-GT/ExpandableTextView)，原项目使用LinearLayout包装TextView和Button的做法，需要保证id的一致，文本内容需要在代码中设置，操作较为复杂，故修改继承自TextView，保留TextView完整特性，简化操作。
 
