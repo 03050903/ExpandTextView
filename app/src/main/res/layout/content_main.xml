@@ -1,0 +1,18 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/fragment"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    app:layout_behavior="@string/appbar_scrolling_view_behavior">
+
+    <com.lcodecore.extextview.ExpandTextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textColor="#666666"
+        android:textSize="16sp"
+        app:maxCollapsedLines="4"
+        android:text="实践中发现许多较为关键的类、变量、方法都是私有的，无法进行操作，只好定义SuperViewPager继承自ViewGroup，复制ViewPager,变量、方法都是私有的，无法进行操作，只好定义SuperViewPager继承自ViewGroup，复制ViewPager里面所有内容并进行修改."/>
+
+</LinearLayout>
