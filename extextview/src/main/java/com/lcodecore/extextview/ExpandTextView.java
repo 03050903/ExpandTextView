@@ -8,14 +8,10 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
-import android.support.annotation.DrawableRes;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 import android.text.SpannableString;
 import android.text.Spanned;
 import android.text.style.ImageSpan;
 import android.util.AttributeSet;
-import android.util.SparseBooleanArray;
 import android.view.View;
 import android.view.animation.AlphaAnimation;
 import android.view.animation.Animation;
@@ -33,7 +29,7 @@ public class ExpandTextView extends TextView implements View.OnClickListener {
     private static final int DEFAULT_ANIM_DURATION = 300; // The default animation duration 默认动画时长为300ms
     private static final float DEFAULT_ANIM_ALPHA_START = 0.7f;// The default alpha value when the animation starts
 
-    private int mMaxCollapsedLines;//最大显示行数
+    private int mMaxCollapsedLines = 8;//最大显示行数
     private int mAnimationDuration;
     private float mAnimAlphaStart;
     private Drawable mExpandDrawable;//展开前显示图片
@@ -43,7 +39,7 @@ public class ExpandTextView extends TextView implements View.OnClickListener {
     private int mTextHeightWithMaxLines;
 
     private boolean mCollapsed = true; // Show short version as default.标示现在所处的折叠状态
-    private boolean mAnimating;
+    private boolean mAnimating = false;
     private boolean needCollapse = true; //标示是否需要折叠已显示末尾的图标
 
 
@@ -69,9 +65,6 @@ public class ExpandTextView extends TextView implements View.OnClickListener {
      * 箭头图标和文字的距离
      */
     private int arrowDrawablePadding = 0;
-
-    private SparseBooleanArray mCollapsedStatus;/* For saving collapsed status when used in ListView */
-    public int mPosition;
 
     /* Listener for callback */
     private OnExpandStateChangeListener mListener;
@@ -111,20 +104,21 @@ public class ExpandTextView extends TextView implements View.OnClickListener {
         setOnClickListener(this);
     }
 
-
     private boolean isDrawablePaddingResolved = false;
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        if (getVisibility() == GONE) {
+        if (getVisibility() == GONE || mAnimating) {
             super.onMeasure(widthMeasureSpec, heightMeasureSpec);
             return;
         }
 
+        //重置高度重新测量
+        getLayoutParams().height = -2;//设置为wrap_content，重新measure
         setMaxLines(Integer.MAX_VALUE);
+        //测量TextView总高度
         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
         if (getLineCount() <= mMaxCollapsedLines) {
-            //不需要折叠
             needCollapse = false;
             return;
         }
@@ -136,23 +130,19 @@ public class ExpandTextView extends TextView implements View.OnClickListener {
             setMaxLines(mMaxCollapsedLines);
         }
 
-        if (needCollapse) {
-            mDrawableSize = mExpandDrawable.getIntrinsicWidth();
-            if (!isDrawablePaddingResolved) {
-                if (arrowPosition == POSITION_RIGHT) {
-                    setPadding(getPaddingLeft(), getPaddingTop(), getPaddingRight() + mDrawableSize + arrowDrawablePadding, getPaddingBottom());
-                } else {
-                    setPadding(getPaddingLeft(), getPaddingTop(), getPaddingRight(), getPaddingBottom() + mExpandDrawable.getIntrinsicHeight() + arrowDrawablePadding);
-                }
-                isDrawablePaddingResolved = true;
+        mDrawableSize = mExpandDrawable.getIntrinsicWidth();
+        if (!isDrawablePaddingResolved) {
+            if (arrowPosition == POSITION_RIGHT) {
+                setPadding(getPaddingLeft(), getPaddingTop(), getPaddingRight() + mDrawableSize + arrowDrawablePadding, getPaddingBottom());
+            } else {
+                setPadding(getPaddingLeft(), getPaddingTop(), getPaddingRight(), getPaddingBottom() + mExpandDrawable.getIntrinsicHeight() + arrowDrawablePadding);
             }
+            isDrawablePaddingResolved = true;
         }
-
 
         //设置完成后重新测量
         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
         if (mCollapsed) {
-            // Saves the collapsed height of this ViewGroup
             mCollapsedHeight = getMeasuredHeight();
         }
 
@@ -206,19 +196,17 @@ public class ExpandTextView extends TextView implements View.OnClickListener {
     }
 
     @Override
+    public void setText(CharSequence text, BufferType type) {
+        setCollapsed(true);
+        super.setText(text, type);
+    }
+
+    @Override
     public void onClick(View v) {
         if (!needCollapse) {
             return;//行数不足,不响应点击事件
         }
-//        if (mButton.getVisibility() != View.VISIBLE) {
-//            return;
-//        }
         mCollapsed = !mCollapsed;
-
-//        Bitmap expandBM = Bitmap.createBitmap(mExpandDrawable.getIntrinsicWidth(),mExpandDrawable.getIntrinsicHeight(), Bitmap.Config.ARGB_8888);
-//        Canvas cv1 = new Canvas(expandBM);
-//        mExpandDrawable.setBounds(0,0,mExpandDrawable.getIntrinsicWidth(),mExpandDrawable.getIntrinsicHeight());
-//        mExpandDrawable.draw(cv1);
 
         Bitmap collapseBM = Bitmap.createBitmap(mCollapseDrawable.getIntrinsicWidth(), mCollapseDrawable.getIntrinsicHeight(), Bitmap.Config.ARGB_8888);
         Canvas cv2 = new Canvas(collapseBM);
@@ -231,14 +219,6 @@ public class ExpandTextView extends TextView implements View.OnClickListener {
         SpannableString spannableString = new SpannableString("icon");
         spannableString.setSpan(mCollapsed ? isExpand : isCollapse, 0, 4, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
 
-//        append(spannableString);
-
-//        mButton.setImageDrawable(mCollapsed ? mExpandDrawable : mCollapseDrawable);
-
-        if (mCollapsedStatus != null) {
-            mCollapsedStatus.put(mPosition, mCollapsed);
-        }
-
         // mark that the animation is in progress
         mAnimating = true;
 
@@ -246,7 +226,6 @@ public class ExpandTextView extends TextView implements View.OnClickListener {
         if (mCollapsed) {
             animation = new ExpandCollapseAnimation(this, getHeight(), mCollapsedHeight);
         } else {
-            System.out.println("展开动画");
             animation = new ExpandCollapseAnimation(this, getHeight(), mTextHeightWithMaxLines);
         }
 
@@ -254,6 +233,9 @@ public class ExpandTextView extends TextView implements View.OnClickListener {
         animation.setAnimationListener(new Animation.AnimationListener() {
             @Override
             public void onAnimationStart(Animation animation) {
+                if (mListener != null) {
+                    mListener.onChangeStateStart(!mCollapsed);
+                }
                 applyAlphaAnimation(ExpandTextView.this, mAnimAlphaStart);
             }
 
@@ -279,7 +261,7 @@ public class ExpandTextView extends TextView implements View.OnClickListener {
         startAnimation(animation);
     }
 
-    class ExpandCollapseAnimation extends Animation {
+    private class ExpandCollapseAnimation extends Animation {
         private final View mTargetView;
         private final int mStartHeight;
         private final int mEndHeight;
@@ -294,12 +276,11 @@ public class ExpandTextView extends TextView implements View.OnClickListener {
         @Override
         protected void applyTransformation(float interpolatedTime, Transformation t) {
             final int newHeight = (int) ((mEndHeight - mStartHeight) * interpolatedTime + mStartHeight);
+            mTargetView.getLayoutParams().height = newHeight;
             setMaxHeight(newHeight);
             if (Float.compare(mAnimAlphaStart, 1.0f) != 0) {
                 applyAlphaAnimation(ExpandTextView.this, mAnimAlphaStart + interpolatedTime * (1.0f - mAnimAlphaStart));
             }
-            mTargetView.getLayoutParams().height = newHeight;
-            mTargetView.requestLayout();
         }
 
         @Override
@@ -313,15 +294,13 @@ public class ExpandTextView extends TextView implements View.OnClickListener {
         }
     }
 
-    ;
 
-
-    private Drawable getDrawable(@NonNull Context context, @DrawableRes int resId) {
+    private Drawable getDrawable(Context context, int drawableResId) {
         Resources resources = context.getResources();
         if (isPostLolipop()) {
-            return resources.getDrawable(resId, context.getTheme());
+            return resources.getDrawable(drawableResId, context.getTheme());
         } else {
-            return resources.getDrawable(resId);
+            return resources.getDrawable(drawableResId);
         }
     }
 
@@ -346,19 +325,20 @@ public class ExpandTextView extends TextView implements View.OnClickListener {
         return Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP;
     }
 
-    private int getRealTextViewHeight(@NonNull TextView textView) {
+    private int getRealTextViewHeight(TextView textView) {
         int textHeight = textView.getLayout().getLineTop(textView.getLineCount());
         int padding = textView.getCompoundPaddingTop() + textView.getCompoundPaddingBottom();
         return textHeight + padding;
     }
 
-    private int sp2dp(int dp) {
-        return 0;
-        //return (int)TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP,dp,getResources().getDisplayMetrics());
+
+    public void setCollapsed(boolean isCollapsed) {
+        mCollapsed = isCollapsed;
     }
 
 
     public interface OnExpandStateChangeListener {
+        void onChangeStateStart(boolean willExpand);
         /**
          * Called when the expand/collapse animation has been finished
          *
@@ -368,7 +348,7 @@ public class ExpandTextView extends TextView implements View.OnClickListener {
         void onExpandStateChanged(TextView textView, boolean isExpanded);
     }
 
-    public void setOnExpandStateChangeListener(@Nullable OnExpandStateChangeListener listener) {
+    public void setOnExpandStateChangeListener(OnExpandStateChangeListener listener) {
         mListener = listener;
     }
 }
